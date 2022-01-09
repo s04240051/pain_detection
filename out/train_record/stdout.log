@@ -1,0 +1,59 @@
+2022-01-06 22:30:28,443 - tool.train - INFO - start load dataset
+2022-01-06 22:30:28,596 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 10:33:19,898 - tool.train - INFO - start load dataset
+2022-01-07 10:33:21,340 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 10:47:43,394 - tool.train - INFO - start load dataset
+2022-01-07 10:47:44,883 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 10:47:44,958 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 10:54:27,541 - tool.train - INFO - start load dataset
+2022-01-07 10:54:27,687 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 10:54:27,702 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 10:54:27,704 - tool.train - INFO - start epoch 0
+2022-01-07 10:54:34,437 - tool.train - INFO - start load dataset
+2022-01-07 10:54:37,005 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 10:54:37,024 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 10:54:37,025 - tool.train - INFO - start epoch 0
+2022-01-07 11:05:13,534 - tool.train - INFO - start load dataset
+2022-01-07 11:05:13,669 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 11:05:13,684 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 11:05:13,685 - tool.train - INFO - start epoch 0
+2022-01-07 11:22:32,686 - tool.train - INFO - start load dataset
+2022-01-07 11:22:32,826 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 11:22:32,841 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 11:22:32,842 - tool.train - INFO - start epoch 0
+2022-01-07 12:05:23,607 - tool.train - INFO - start load dataset
+2022-01-07 12:05:23,804 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 12:05:23,819 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 12:05:23,820 - tool.train - INFO - start epoch 0
+2022-01-07 14:38:34,274 - tool.train - INFO - start load dataset
+2022-01-07 14:38:35,019 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 14:38:35,039 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 14:38:35,040 - tool.train - INFO - start epoch 0
+2022-01-07 14:40:48,072 - tool.train - INFO - start load dataset
+2022-01-07 14:40:48,214 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 14:40:48,229 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 14:40:48,231 - tool.train - INFO - start epoch 0
+2022-01-07 15:17:26,130 - tool.train - INFO - start load dataset
+2022-01-07 15:17:26,272 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 15:17:26,287 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 15:17:26,288 - tool.train - INFO - start epoch 0
+2022-01-07 17:58:25,467 - tool.train - INFO - start load dataset
+2022-01-07 17:58:25,649 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 17:58:25,664 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 17:58:25,666 - tool.train - INFO - start epoch 0
+2022-01-07 18:00:34,530 - tool.train - INFO - start load dataset
+2022-01-07 18:00:34,673 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 18:00:34,688 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 18:00:34,689 - tool.train - INFO - start epoch 0
+2022-01-07 18:05:58,971 - tool.train - INFO - start load dataset
+2022-01-07 18:05:59,117 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-07 18:05:59,133 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-07 18:05:59,134 - tool.train - INFO - start epoch 0
+2022-01-09 17:10:55,745 - tool.train - INFO - start load dataset
+2022-01-09 17:10:57,528 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-09 17:10:57,550 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-09 17:10:57,551 - tool.train - INFO - start epoch 0
+2022-01-09 17:59:28,972 - tool.train - INFO - start load dataset
+2022-01-09 17:59:29,128 - lib.data_build.data_loader - INFO - pain: 4876,not_pain: 7080,train: 11956
+2022-01-09 17:59:29,145 - lib.data_build.data_loader - INFO - pain: 242,not_pain: 504,test: 746
+2022-01-09 17:59:29,146 - tool.train - INFO - start epoch 0
