@@ -15,7 +15,7 @@ def build_model(cfg):
     if cfg.MODEL.MODEL_NAME == "two_lstm":
         model = two_stream_model(cfg).cuda()
     
-    test_meter =utils.Test_meter() 
+    test_meter =utils.Test_meter(cfg) 
     return (
         model,
         test_meter,
@@ -45,7 +45,7 @@ def test_net(cfg):
   
 
 @torch.no_grad()   
-def val_epoch(cfg, model, test_loader, test_meter, cur_epoch):
+def val_epoch(cfg, model, test_loader, test_meter):
     model.eval()
     test_meter.time_start()
     for cur_iter, (inputs, labels) in enumerate(test_loader):
@@ -68,12 +68,12 @@ def val_epoch(cfg, model, test_loader, test_meter, cur_epoch):
             acc = utils.get_accuracy(outputs, labels) 
         
         acc = acc.item()
-        batch_size = inputs.size(0)
+        batch_size = inputs[0].size(0)
         test_meter.update_states(acc, batch_size)
         
         test_meter.time_pause()
         test_meter.update_batch()
         test_meter.time_start()
     
-    test_meter.update_epoch(cur_epoch)
+    test_meter.update_epoch(-1, cfg)
     test_meter.reset()

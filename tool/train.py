@@ -111,7 +111,7 @@ def train_epoch(cfg, model, optim, train_loader, train_meter,cur_epoch):
             loss.item(),
             acc.item(),
         )
-        batch_size = inputs.size(0)
+        batch_size = inputs[0].size(0)
         train_meter.update_states(loss, acc, batch_size, lr)
         
         train_meter.time_pause()

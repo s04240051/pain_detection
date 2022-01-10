@@ -113,7 +113,7 @@ class Pain_dataset(Dataset):
                 self.crop_img, file_name.split(".")[0])
         )
         feature  = clip_inf.iloc[:, :-4].values
-        kps = torch.from_numpy(feature.copy())
+        kps = torch.from_numpy(feature.copy()).float()
         label = clip[-1]
         return [frames, kps], label
 
