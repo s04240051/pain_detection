@@ -37,8 +37,8 @@ def load_test_checkpoint(cfg, model):
         assert os.path.isfile(
             cfg.TEST_INITIAL_WEIGHT
         ), "Checkpoint '{}' not found".format(file_path) 
-    elif get_checkpoints_set:
-        file_path =  sorted(get_checkpoints_set)[-1]
+    elif get_checkpoints_set(cfg):
+        file_path =  sorted(get_checkpoints_set(cfg))[-1]
     elif cfg.TRAIN_INITIAL_WEIGHT != "":
         file_path = cfg.TRAIN_INITIAL_WEIGHT
         assert os.path.isfile(
@@ -48,7 +48,7 @@ def load_test_checkpoint(cfg, model):
         print(
             "Unknown way of loading checkpoint. Using with random initialization, only for debugging."
         )
-        
+        return 
     checkpoint = torch.load(file_path)
     ms = model.module.state_dict() if cfg.NUM_GPUS > 1 else model.state_dict()
     ms.load_state_dict(checkpoint['model_state'])
@@ -131,7 +131,7 @@ class Train_meter:
     
     def init_record(self, split, cfg):
         record_dir = os.path.join(cfg.OUT_DIR, split+"_record")
-        record_name = "train_record{:03}".format(len(os.listdir(record_dir)))
+        record_name = "{}_record{:03}.csv".format(split, len(os.listdir(record_dir)))
         return  os.path.join(record_dir, record_name)
     
     def time_start(self):
@@ -219,7 +219,7 @@ def record_info(info, filename):
     logger = get_logger(__name__)
     logger.info("json states: {:s}".format(result))
 
-    df = pd.DataFrame(info)
+    df = pd.DataFrame([info])
 
     if not os.path.isfile(filename):
         df.to_csv(filename, index=False)
@@ -298,7 +298,7 @@ def setup_logging(log_path):
     # 输出DEBUG及以上级别的信息，针对所有输出的第一层过滤
     logger.setLevel(level=logging.DEBUG)
     # 获取文件日志句柄并设置日志级别，第二层过滤
-    log_path = get_checkpoints_path(log_path, "train_record")
+    log_path = get_checkpoints_path(log_path, "logger")
     log_path = os.path.join(log_path, "stdout.log")
     handler = logging.FileHandler(log_path, encoding='UTF-8')
     handler.setLevel(logging.INFO)
