@@ -115,7 +115,7 @@ class Pain_dataset(Dataset):
         feature  = clip_inf.iloc[:, :-4].values
         kps = torch.from_numpy(feature.copy()).float()
         label = clip[-1]
-        return [frames, kps], label
+        return [frames, kps], int(label)
 
     def frames_builder(self, frame_inf, video_name):
         crop_threshold = [300,  450, 600]

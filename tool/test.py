@@ -60,16 +60,23 @@ def val_epoch(cfg, model, test_loader, test_meter):
             inputs = inputs.cuda(non_blocking=True)
         
         labels = labels.cuda()
+        labels = labels.unsqueeze(-1)
         outputs = model(inputs)
-      
+
+        loss_func = nn.BCEWithLogitsLoss().cuda()
+        loss = loss_func(outputs, labels.float())
+
         if cfg.MODEL.NUM_LABELS == 2:
             acc = utils.get_binary_acc(outputs, labels) 
         else:
             acc = utils.get_accuracy(outputs, labels) 
         
-        acc = acc.item()
+        loss, acc = (
+            loss.item(),
+            acc.item(),
+        )
         batch_size = inputs[0].size(0)
-        test_meter.update_states(acc, batch_size)
+        test_meter.update_states(acc, loss, batch_size)
         
         test_meter.time_pause()
         test_meter.update_batch()
