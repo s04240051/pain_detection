@@ -192,16 +192,17 @@ class Test_meter(Train_meter):
         super(Test_meter, self).__init__(cfg)
         self.record_path = self.init_record("test", cfg)
     
-    def update_states(self, acc, batch_size):
+    def update_states(self, acc,loss, batch_size):
         self.acc_meter.update(acc, batch_size)
-
+        self.loss_meter.update(loss, batch_size)
     def update_epoch(self, cur_epoch, cfg):
         stats = {
             "_type": "test_epoch",
             "epoch": "{}/{}".format(cur_epoch + 1, cfg.SOLVER.MAX_EPOCH),
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
-            "accuracy": round(self.acc_meter.avg, 2)
+            "accuracy": round(self.acc_meter.avg, 2),
+            "loss": round(self.loss_meter, 3),
         }
         
         record_info(stats, self.record_path)
@@ -210,7 +211,7 @@ class Test_meter(Train_meter):
         self.acc_meter.reset()
         self.batch_meter.reset()
         self.data_meter.reset()
-
+        self.loss_meter.reset()
 
 def record_info(info, filename):
 

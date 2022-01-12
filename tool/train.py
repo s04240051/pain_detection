@@ -1,5 +1,4 @@
-import numpy as np
-import os
+from tqdm import tqdm
 import torch
 import torch.nn as nn 
 import torch.backends.cudnn as cudnn
@@ -45,7 +44,7 @@ def build_model(cfg):
 def val_epoch(cfg, model, test_loader, test_meter, cur_epoch):
     model.eval()
     test_meter.time_start()
-    for cur_iter, (inputs, labels) in enumerate(test_loader):
+    for cur_iter, (inputs, labels) in enumerate(tqdm(test_loader)):
         test_meter.time_pause()
         test_meter.update_data()
         test_meter.time_start()
@@ -57,24 +56,32 @@ def val_epoch(cfg, model, test_loader, test_meter, cur_epoch):
             inputs = inputs.cuda(non_blocking=True)
         
         labels = labels.cuda()
+        labels = labels.unsqueeze(-1)
         outputs = model(inputs)
-      
+
+        loss_func = nn.BCEWithLogitsLoss().cuda()
+        loss = loss_func(outputs, labels.float())
+
         if cfg.MODEL.NUM_LABELS == 2:
             acc = utils.get_binary_acc(outputs, labels) 
         else:
             acc = utils.get_accuracy(outputs, labels) 
         
-        acc = acc.item()
-        batch_size = inputs.size(0)
-        test_meter.update_states(acc, batch_size)
+        loss, acc = (
+            loss.item(),
+            acc.item(),
+        )
+        batch_size = inputs[0].size(0)
+        test_meter.update_states(acc, loss, batch_size)
         
         test_meter.time_pause()
         test_meter.update_batch()
         test_meter.time_start()
     
     test_meter.update_epoch(cur_epoch)
+    acc = test_meter.acc_meter.avg
     test_meter.reset()
-
+    return acc
 
 def train_epoch(cfg, model, optim, train_loader, train_meter,cur_epoch):
     data_size = len(train_loader)
@@ -93,10 +100,11 @@ def train_epoch(cfg, model, optim, train_loader, train_meter,cur_epoch):
         lr = utils.get_lr_at_epoch(cfg, cur_epoch+float(cur_iter)/data_size)
         utils.set_lr(optim, lr)
         labels = labels.cuda()
+        labels = labels.unsqueeze(-1)
         outputs = model(inputs)
       
-        loss_func = nn.BCEWithLogitsLoss.cuda()
-        loss = loss_func(outputs, labels)
+        loss_func = nn.BCEWithLogitsLoss().cuda()
+        loss = loss_func(outputs, labels.float())
         
         if cfg.MODEL.NUM_LABELS == 2:
             acc = utils.get_binary_acc(outputs, labels) 
@@ -141,13 +149,16 @@ def train_net(cfg):
     cudnn.benchmark = True
     
     logger.info("start epoch {}".format(start_epoch+1))
-
+    best_pred = 0
     for epoch in range(start_epoch, cfg.SOLVER.MAX_EPOCH):
         train_epoch(cfg, model, optim, train_loader, train_meter, epoch)
         utils.save_checkpoint(cfg.OUT_DIR,cfg.CHECKPOINTS_FOLD, model, optim, epoch, cfg.NUM_GPUS)
         if cfg.SOLVER.ENABLE_VAL:
-            val_epoch(cfg, model, test_loader, test_meter, epoch)
-         
+            acc = val_epoch(cfg, model, test_loader, test_meter, epoch)
+            if acc > best_pred:
+                best_pred = acc
+                best_epoch = epoch + 1
+    logger.info("best model in {} epoch with acc {:.3f}".format(best_epoch, best_pred))
         
 if __name__ == "__main__":
     train_net(cfg)
