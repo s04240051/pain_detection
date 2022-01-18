@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 import os
 import torch
 import torch.nn as nn 
@@ -48,7 +49,7 @@ def test_net(cfg):
 def val_epoch(cfg, model, test_loader, test_meter):
     model.eval()
     test_meter.time_start()
-    for cur_iter, (inputs, labels) in enumerate(test_loader):
+    for cur_iter, (inputs, labels) in enumerate(tqdm(test_loader)):
         test_meter.time_pause()
         test_meter.update_data()
         test_meter.time_start()

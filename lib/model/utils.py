@@ -1,3 +1,4 @@
+from asyncio.log import logger
 import os
 import time
 import math
@@ -50,8 +51,8 @@ def load_test_checkpoint(cfg, model):
         )
         return 
     checkpoint = torch.load(file_path)
-    ms = model.module.state_dict() if cfg.NUM_GPUS > 1 else model.state_dict()
-    ms.load_state_dict(checkpoint['model_state'])
+    
+    model.load_state_dict(checkpoint['model_state'])
     
     
 def save_checkpoint(out_dir, checkpoints_fold, model, optim, cur_epoch, num_gpus):
@@ -62,7 +63,7 @@ def save_checkpoint(out_dir, checkpoints_fold, model, optim, cur_epoch, num_gpus
         "optimizer_state": optim.state_dict(),
 
     }
-    name = "checkpoint_epoch_{:05d}.pyth".format(cur_epoch)
+    name = "checkpoint_epoch_{:05d}.pyth".format(cur_epoch+1)
     path_to_checkpoints = os.path.join(
         get_checkpoints_path(out_dir, checkpoints_fold), name)
     torch.save(checkpoint, path_to_checkpoints)
@@ -80,7 +81,7 @@ def get_checkpoints_set(cfg):
     checkpoint_dir = get_checkpoints_path(cfg.OUT_DIR, cfg.CHECKPOINTS_FOLD)
     if os.path.isdir(checkpoint_dir):
         checkpoint_list = [os.path.join(checkpoint_dir,file) for file in os.listdir(
-            checkpoint_dir) if file.endswith(".pyth")]
+            checkpoint_dir) if file.endswith(".pth")]
         return checkpoint_list
     else:
         return []
@@ -100,7 +101,16 @@ def get_binary_acc(outputs, labels):
     acc = torch.mean((outputs == labels)*1.)
     return acc
 
-
+def save_policy(cur_epoch, isbest, cfg):
+    if isbest and cur_epoch > cfg.SOLVER.WARMUP_EPOCHS:
+        return True
+    save_step = cfg.RUN.SAVE_STEP
+    if cur_epoch >= cfg.SOLVER.MAX_EPOCH-cfg.RUN.SAVE_LAST:
+        return True
+    elif ((cur_epoch+1) % save_step) == 0:
+        return True
+    else:
+        return False
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -127,12 +137,22 @@ class Train_meter:
         self.loss_meter = AverageMeter()
         self.acc_meter = AverageMeter()
         self.lr = None
+        self.max_epoch = cfg.SOLVER.MAX_EPOCH
+        self.logger = get_logger(__name__)
         self.record_path = self.init_record("train", cfg)
+        
     
     def init_record(self, split, cfg):
         record_dir = os.path.join(cfg.OUT_DIR, split+"_record")
-        record_name = "{}_record{:03}.csv".format(split, len(os.listdir(record_dir)))
-        return  os.path.join(record_dir, record_name)
+        record_name = cfg.TRAIN_RECORD if split == "train" else cfg.TEST_RECORD
+        record_path = os.path.join(record_dir, record_name)
+        
+        if record_name == "" or not os.path.isfile(record_path):
+            record_name = "{}_record{:03}.csv".format(split, len(os.listdir(record_dir)))
+            record_path = os.path.join(record_dir, record_name)
+        self.logger.info("save {} record in {}".format(split, record_path))
+        return record_path
+        
     
     def time_start(self):
         self.start = time.perf_counter()
@@ -174,11 +194,24 @@ class Train_meter:
             "lr": self.lr,
             "eta": eta,
             "loss": round(self.loss_meter.avg, 3),
-            "accuracy": round(self.acc_meter.avg, 2)
+            "accuracy": round(self.acc_meter.avg, 3)
         }
         
-        record_info(stats, self.record_path)
+        self.record_info(stats, self.record_path)
+    
+    def record_info(self, info, filename):
+        result = "|".join([f"{key} {item}" for key, item in info.items()])
 
+        
+        self.logger.info("json states: {:s}".format(result))
+
+        df = pd.DataFrame([info])
+
+        if not os.path.isfile(filename):
+            df.to_csv(filename, index=False)
+        else:  # else it exists so append without writing the header
+            df.to_csv(filename, mode='a', header=False, index=False)
+    
     def reset(self):
         self.acc_meter.reset()
         self.batch_meter.reset()
@@ -202,31 +235,16 @@ class Test_meter(Train_meter):
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
             "accuracy": round(self.acc_meter.avg, 2),
-            "loss": round(self.loss_meter, 3),
+            "loss": round(self.loss_meter.avg, 3),
         }
         
-        record_info(stats, self.record_path)
+        self.record_info(stats, self.record_path)
 
     def reset(self):
         self.acc_meter.reset()
         self.batch_meter.reset()
         self.data_meter.reset()
         self.loss_meter.reset()
-
-def record_info(info, filename):
-
-    result = "|".join([f"{key} {item}" for key, item in info.items()])
-
-    logger = get_logger(__name__)
-    logger.info("json states: {:s}".format(result))
-
-    df = pd.DataFrame([info])
-
-    if not os.path.isfile(filename):
-        df.to_csv(filename, index=False)
-    else:  # else it exists so append without writing the header
-        df.to_csv(filename, mode='a', header=False, index=False)
-
 
 def get_lr_at_epoch(cfg, cur_epoch):
     """
@@ -237,11 +255,11 @@ def get_lr_at_epoch(cfg, cur_epoch):
             slowfast/config/defaults.py
         cur_epoch (float): the number of epoch of the current training stage.
     """
-    lr = lr_func_cosine(cfg, cur_epoch)
+    lr = get_lr_func(cfg.SOLVER.LR_POLICY)(cfg, cur_epoch)
     # Perform warm up.
     if cur_epoch < cfg.SOLVER.WARMUP_EPOCHS:
         lr_start = cfg.SOLVER.WARMUP_START_LR
-        lr_end = lr_func_cosine(
+        lr_end = get_lr_func(cfg.SOLVER.LR_POLICY)(
             cfg, cfg.SOLVER.WARMUP_EPOCHS
         )
         alpha = (lr_end - lr_start) / cfg.SOLVER.WARMUP_EPOCHS
@@ -275,6 +293,44 @@ def lr_func_cosine(cfg, cur_epoch):
         * 0.5
     )
 
+def lr_func_steps_with_relative_lrs(cfg, cur_epoch):
+    """
+    Retrieve the learning rate to specified values at specified epoch with the
+    steps with relative learning rate schedule.
+    Args:
+        cfg (CfgNode): configs. Details can be found in
+            slowfast/config/defaults.py
+        cur_epoch (float): the number of epoch of the current training stage.
+    """
+    ind = get_step_index(cfg, cur_epoch)
+    return cfg.SOLVER.LRS[ind] * cfg.SOLVER.BASE_LR
+
+
+def get_step_index(cfg, cur_epoch):
+    """
+    Retrieves the lr step index for the given epoch.
+    Args:
+        cfg (CfgNode): configs. Details can be found in
+            slowfast/config/defaults.py
+        cur_epoch (float): the number of epoch of the current training stage.
+    """
+    steps = cfg.SOLVER.STEPS + [cfg.SOLVER.MAX_EPOCH]
+    for ind, step in enumerate(steps):  # NoQA
+        if cur_epoch < step:
+            break
+    return ind - 1
+
+def get_lr_func(lr_policy):
+    """
+    Given the configs, retrieve the specified lr policy function.
+    Args:
+        lr_policy (string): the learning rate policy to use for the job.
+    """
+    policy = "lr_func_" + lr_policy
+    if policy not in globals():
+        raise NotImplementedError("Unknown LR policy: {}".format(lr_policy))
+    else:
+        return globals()[policy]
 
 def set_lr(optimizer, new_lr):
     """
