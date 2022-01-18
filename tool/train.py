@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import numpy as np
 import torch
 import torch.nn as nn 
 import torch.backends.cudnn as cudnn
@@ -130,6 +131,9 @@ def train_epoch(cfg, model, optim, train_loader, train_meter,cur_epoch):
     train_meter.reset()
 
 def train_net(cfg):
+    np.random.seed(cfg.RNG_SEED)
+    torch.manual_seed(cfg.RNG_SEED)
+
     utils.setup_logging(cfg.OUT_DIR)
     (
         model,
@@ -150,15 +154,22 @@ def train_net(cfg):
     
     logger.info("start epoch {}".format(start_epoch+1))
     best_pred = 0
+    isbest = False
     for epoch in range(start_epoch, cfg.SOLVER.MAX_EPOCH):
         train_epoch(cfg, model, optim, train_loader, train_meter, epoch)
-        utils.save_checkpoint(cfg.OUT_DIR,cfg.CHECKPOINTS_FOLD, model, optim, epoch, cfg.NUM_GPUS)
         if cfg.SOLVER.ENABLE_VAL:
             acc = val_epoch(cfg, model, test_loader, test_meter, epoch)
-            if acc > best_pred:
+            isbest = acc > best_pred
+            if isbest:
                 best_pred = acc
                 best_epoch = epoch + 1
-    logger.info("best model in {} epoch with acc {:.3f}".format(best_epoch, best_pred))
-        
+                
+        trigger_save = utils.save_policy(epoch, isbest, cfg)
+        if trigger_save:
+            utils.save_checkpoint(cfg.OUT_DIR,cfg.CHECKPOINTS_FOLD, model, optim, epoch, cfg.NUM_GPUS)   
+    if cfg.SOLVER.ENABLE_VAL:
+        logger.info("best model in {} epoch with acc {:.3f}".format(best_epoch, best_pred))
+     
 if __name__ == "__main__":
     train_net(cfg)
+        
