@@ -1,4 +1,4 @@
-from asyncio.log import logger
+from sklearn.metrics import f1_score
 import os
 import time
 import math
@@ -26,7 +26,7 @@ def load_train_checkpoint(cfg, model, optim):
         return -1
     checkpoint = torch.load(file_path)
     start_epoch = checkpoint['epoch']
-    #best_prec1 = checkpoint['best_prec1']
+    
     model.load_state_dict(checkpoint['model_state'])
     optim.load_state_dict(checkpoint['optimizer_state'])
     return start_epoch
@@ -51,9 +51,9 @@ def load_test_checkpoint(cfg, model):
         )
         return 
     checkpoint = torch.load(file_path)
-    
+    test_epoch  = checkpoint["epoch"]
     model.load_state_dict(checkpoint['model_state'])
-    
+    return test_epoch
     
 def save_checkpoint(out_dir, checkpoints_fold, model, optim, cur_epoch, num_gpus):
     sd = model.module.state_dict() if num_gpus > 1 else model.state_dict()
@@ -63,7 +63,7 @@ def save_checkpoint(out_dir, checkpoints_fold, model, optim, cur_epoch, num_gpus
         "optimizer_state": optim.state_dict(),
 
     }
-    name = "checkpoint_epoch_{:05d}.pyth".format(cur_epoch+1)
+    name = "checkpoint_epoch_{:05d}.pt".format(cur_epoch)
     path_to_checkpoints = os.path.join(
         get_checkpoints_path(out_dir, checkpoints_fold), name)
     torch.save(checkpoint, path_to_checkpoints)
@@ -81,7 +81,7 @@ def get_checkpoints_set(cfg):
     checkpoint_dir = get_checkpoints_path(cfg.OUT_DIR, cfg.CHECKPOINTS_FOLD)
     if os.path.isdir(checkpoint_dir):
         checkpoint_list = [os.path.join(checkpoint_dir,file) for file in os.listdir(
-            checkpoint_dir) if file.endswith(".pth")]
+            checkpoint_dir) if file.endswith(".pt")]
         return checkpoint_list
     else:
         return []
@@ -107,7 +107,7 @@ def save_policy(cur_epoch, isbest, cfg):
     save_step = cfg.RUN.SAVE_STEP
     if cur_epoch >= cfg.SOLVER.MAX_EPOCH-cfg.RUN.SAVE_LAST:
         return True
-    elif ((cur_epoch+1) % save_step) == 0:
+    elif ((cur_epoch) % save_step) == 0:
         return True
     else:
         return False
@@ -144,7 +144,8 @@ class Train_meter:
     
     def init_record(self, split, cfg):
         record_dir = os.path.join(cfg.OUT_DIR, split+"_record")
-        record_name = cfg.TRAIN_RECORD if split == "train" else cfg.TEST_RECORD
+        record_name = eval(f"cfg.{split.upper()}_RECORD")
+        
         record_path = os.path.join(record_dir, record_name)
         
         if record_name == "" or not os.path.isfile(record_path):
@@ -184,11 +185,11 @@ class Train_meter:
 
     def update_epoch(self, cur_epoch, cfg):
         eta_sec = (self.batch_meter.sum + self.data_meter.sum) * \
-            (self.max_epoch-cur_epoch-1)
+            (self.max_epoch-cur_epoch)
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
         stats = {
             "_type": "train_epoch",
-            "epoch": "{}/{}".format(cur_epoch + 1, cfg.SOLVER.MAX_EPOCH),
+            "epoch": "{}/{}".format(cur_epoch, cfg.SOLVER.MAX_EPOCH),
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
             "lr": self.lr,
@@ -219,11 +220,52 @@ class Train_meter:
         self.loss_meter.reset()
         self.lr = None
 
-
-class Test_meter(Train_meter):
+class test_meter(Train_meter):
     def __init__(self, cfg):
-        super(Test_meter, self).__init__(cfg)
+        
+        self.data_meter = AverageMeter()
+        self.batch_meter = AverageMeter()
+        self.loss_meter = AverageMeter()
+        self.acc_meter = AverageMeter()
+        self.logger = get_logger(__name__)
         self.record_path = self.init_record("test", cfg)
+        self.preds = torch.tensor([])
+    
+    def update_states(self, loss, acc, batch_size, preds):
+        self.acc_meter.update(acc, batch_size)
+        self.loss_meter.update(loss, batch_size)
+        self.preds = torch.concat((self.preds, preds))
+    
+    def update_epoch(self, cur_epoch, cfg, labels):
+        self.f1 = f1_score(labels, self.preds>0, average="weighted")
+        stats = {
+            "_type": "test_epoch",
+            "epoch": "{}/{}".format(cur_epoch + 1, cfg.SOLVER.MAX_EPOCH),
+            "dt_data": round(self.data_meter.avg, 2),
+            "dt_net": round(self.batch_meter.avg, 2),
+            "accuracy": round(self.acc_meter.avg, 3),
+            "loss": round(self.loss_meter.avg, 3),
+            "f1_score": round(self.f1, 3),
+        }
+        
+        self.record_info(stats, self.record_path)
+    
+    def reset(self):
+        self.acc_meter.reset()
+        self.batch_meter.reset()
+        self.data_meter.reset()
+        self.loss_meter.reset()
+        self.preds = torch.tensor([])
+        self.f1 = 0 
+class Val_meter(Train_meter):
+    def __init__(self, cfg):
+        #super(Val_meter, self).__init__(cfg)
+        self.data_meter = AverageMeter()
+        self.batch_meter = AverageMeter()
+        self.loss_meter = AverageMeter()
+        self.acc_meter = AverageMeter()
+        self.logger = get_logger(__name__)
+        self.record_path = self.init_record("val", cfg)
     
     def update_states(self, acc,loss, batch_size):
         self.acc_meter.update(acc, batch_size)
@@ -234,7 +276,7 @@ class Test_meter(Train_meter):
             "epoch": "{}/{}".format(cur_epoch + 1, cfg.SOLVER.MAX_EPOCH),
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
-            "accuracy": round(self.acc_meter.avg, 2),
+            "accuracy": round(self.acc_meter.avg, 3),
             "loss": round(self.loss_meter.avg, 3),
         }
         

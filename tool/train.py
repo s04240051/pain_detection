@@ -5,15 +5,15 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 
 #import _init_path
-from lib.model.two_stream import two_stream_model
+import lib.model.two_stream as model_set
 from lib.data_build import Data_loader
 from lib.config_file import cfg
 import lib.model.utils as utils
 
 logger = utils.get_logger(__name__)
 def build_model(cfg):
-    if cfg.MODEL.MODEL_NAME == "two_lstm":
-        model = two_stream_model(cfg).cuda()
+    
+    model = eval(f"model_set.{cfg.MODEL.MODEL_NAME}(cfg).cuda()")
     if cfg.SOLVER.METHOD == "sgd":
         optim = torch.optim.SGD(
             model.parameters(), 
@@ -30,9 +30,9 @@ def build_model(cfg):
             betas=(0.9, 0.999),
             weight_decay=cfg.SOLVER.WEIGHT_DECAY,
         )
-    #scheduler = ReduceLROnPlateau(optim, 'min', patience=1,verbose=True)
+    
     train_meter = utils.Train_meter(cfg)
-    test_meter =utils.Test_meter(cfg) 
+    test_meter =utils.Val_meter(cfg) 
     return (
         model,
         optim,
@@ -85,6 +85,7 @@ def val_epoch(cfg, model, test_loader, test_meter, cur_epoch):
     return acc
 
 def train_epoch(cfg, model, optim, train_loader, train_meter,cur_epoch):
+    model.train()
     data_size = len(train_loader)
     train_meter.time_start()
     for cur_iter, (inputs, labels) in enumerate(train_loader):
@@ -143,26 +144,22 @@ def train_net(cfg):
     ) = build_model(cfg)
     data_container = Data_loader(cfg)
     logger.info("start load dataset")
-    train_loader = data_container.construct_loader(
-        cfg.RUN.TRAIN_BATCH_SIZE, cfg.RUN.NUM_WORKS, "train"
-    )
-    test_loader = data_container.construct_loader(
-        cfg.RUN.TEST_BATCH_SIZE, cfg.RUN.NUM_WORKS, "test"
-    )
+    train_loader = data_container.construct_loader("train")
+    test_loader = data_container.construct_loader("test")
     start_epoch = utils.load_train_checkpoint(cfg, model, optim)
     cudnn.benchmark = True
     
     logger.info("start epoch {}".format(start_epoch+1))
     best_pred = 0
     isbest = False
-    for epoch in range(start_epoch, cfg.SOLVER.MAX_EPOCH):
+    for epoch in range(start_epoch+1, cfg.SOLVER.MAX_EPOCH):
         train_epoch(cfg, model, optim, train_loader, train_meter, epoch)
         if cfg.SOLVER.ENABLE_VAL:
             acc = val_epoch(cfg, model, test_loader, test_meter, epoch)
             isbest = acc > best_pred
             if isbest:
                 best_pred = acc
-                best_epoch = epoch + 1
+                best_epoch = epoch 
                 
         trigger_save = utils.save_policy(epoch, isbest, cfg)
         if trigger_save:

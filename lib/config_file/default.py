@@ -17,11 +17,14 @@ _C.DATASET_PATH = r"D:\pose\pain\data\pain_data"
 _C.CHECKPOINTS_FOLD = "checkpoints"
 _C.TRAIN_RECORD = ""
 _C.TEST_RECORD = ""
+_C.VAL_RECORD = ""
 _C.NUM_GPUS = 1
 _C.RNG_SEED = 1
 
+
 _C.MODEL = CN()
-_C.MODEL.MODEL_NAME = "two_lstm"
+_C.MODEL.MODEL_NAME = "Two_stream_model"
+_C.MODEL.TYPE = "two_stream" #["two_stream", "rgb", "kp"]
 _C.MODEL.NUM_CLSTM_LAYERS = 4
 _C.MODEL.CLSTM_HIDDEN_SIZE = 32
 _C.MODEL.LSTM_HIDDEN_SIZE = 32
@@ -29,6 +32,12 @@ _C.MODEL.NUM_LSTM_LAYERS = 4
 _C.MODEL.LSTM_INPUT_SIZE = 34
 _C.MODEL.IMG_SIZE = (224, 224)
 _C.MODEL.NUM_LABELS = 2
+
+_C.DATA = CN()
+_C.DATA.AUG = True
+_C.DATA.MEAN = [0.45, 0.45, 0.45]
+_C.DATA.STD = [0.225, 0.225, 0.225]
+_C.DATA.CROP_THRESHOLD = [300,  450, 600]
 
 _C.SOLVER = CN()
 _C.SOLVER.METHOD = "sgd"
