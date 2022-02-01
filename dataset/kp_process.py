@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
 import itertools
+import json
 import os
 from tqdm import tqdm
 from collections import defaultdict
+from sklearn.model_selection import KFold
 
 head_set = [
     "L_Eye",
@@ -46,16 +48,18 @@ class Dataset_builder:
         hdf_file,
         save_file=None,
         video_file=r"D:\pose\Eksik OFTler\OneDrive-2021-10-28",
-        crop_file=r"D:\pose\pain\data\annotation\crop",
-        split_file=r"D:\pose\pain\data\annotation\split",
+        annotation=r"D:\pose\pain\data\pain_data\annotation",
+        split_file=r"D:\pose\pain\data\pain_data\annotation\split",
         num_kp=17,
+        
     ):
         assert os.path.isdir(hdf_file)
         self.hdf = [item for item in os.listdir(
             hdf_file) if item.endswith(".h5")]
         self.dir = hdf_file
         self.out = save_file
-        self.crop_file = crop_file
+        self.crop_file = os.path.join(annotation, "crop")
+        
         self.split_file = split_file
         self.painset = [item.split(".")[0]+".h5"
                         for item in os.listdir(video_file+"\\pain")]
@@ -64,6 +68,34 @@ class Dataset_builder:
         self.img_inf_col = ["x", "y", "w", "h"]
         self.data_col = [f"kp{i}" for i in range(2*num_kp)]
 
+    def run(self, gap_len=9, clip_len=5, k_fold=None, default_split= None):
+        if k_fold is not None and isinstance(k_fold, int):
+            
+            self.kfold_path = [os.path.join(
+                self.split_file, f"split{i}") for i in range(k_fold)]
+            for path in self.kfold_path:
+                if not os.path.isdir(path):
+                    os.mkdir(path)
+            split_set = self.default_kfold(default_split, k_fold) if default_split is not None else self.train_test_split_kfold()
+            self.pipeline_pack(split_set, gap_len, clip_len)
+        else:
+            self.pipeline(gap_len, clip_len)
+    
+    def default_kfold(self, split_file, k_fold):
+        kfold_path = [os.path.join(
+                split_file, f"split{i}") for i in range(k_fold)]
+        for path in kfold_path:
+            if not os.path.isdir(path):
+                os.mkdir(path)
+        out_set = []
+        for dir in kfold_path:
+            js_path = os.path.join(dir, "video_split.json")
+            assert os.path.isfile(js_path), f"json file {js_path} not exist"
+            with open(js_path, "r") as f:
+                fold = json.load(f)
+            out_set.append(fold.values())
+        return out_set
+    
     def pipeline(self, gap_len=9, clip_len=5):
         split_set = self.train_test_split()
         split_df_set = []
@@ -74,7 +106,8 @@ class Dataset_builder:
                 test_hdf = pd.read_hdf(
                     os.path.join(self.dir, file), "df_with_missing"
                 )
-                label, data = self.range_select(test_hdf, file, is_pain, gap_len, clip_len)
+                label, data = self.range_select(
+                    test_hdf, file, is_pain, gap_len, clip_len)
                 df_temp.append(label)
                 self.save_data(data, file)
             split_df = pd.concat(df_temp, axis=0)
@@ -83,15 +116,41 @@ class Dataset_builder:
         inf = zip(
             ("train", "test"), (split_df_set[:2], split_df_set[2:])
         )
-        self.save_label(inf)
+        self.save_label(inf, self.split_file)
 
-    def save_label(self, inf):
+    def pipeline_pack(self, split_set_kfold, gap_len=9, clip_len=8):
+
+        for k, fold in enumerate(split_set_kfold):
+            split_df_set = []
+
+            for i, hdfs in enumerate(fold):
+                df_temp = []
+                is_pain = True if i % 2 == 0 else False
+                for file in hdfs:
+                    test_hdf = pd.read_hdf(
+                        os.path.join(self.dir, file), "df_with_missing"
+                    )
+                    label, data = self.range_select(
+                        test_hdf, file, is_pain, gap_len, clip_len)
+                    df_temp.append(label)
+                    if k == 0 and self.out is not None:
+                        self.save_data(data, file)
+                split_df = pd.concat(df_temp, axis=0)
+                split_df_set.append(split_df)
+
+            inf = zip(
+                ("train", "test"), (split_df_set[:2], split_df_set[2:])
+            )
+            self.save_label(inf, self.kfold_path[k])
+
+    def save_label(self, inf, split_file):
+
         for name, df in inf:
             df = pd.concat(df, axis=0)
             df.to_hdf(
-                os.path.join(self.split_file, name+".h5"), "df_with_missing", format="table", mode="w"
+                os.path.join(split_file, name+".h5"), "df_with_missing", format="table", mode="w"
             )
-            df.to_csv(os.path.join(self.split_file, name+".csv"))
+            df.to_csv(os.path.join(split_file, name+".csv"))
 
     def save_data(self, video_data, name):
 
@@ -112,6 +171,33 @@ class Dataset_builder:
         train_not = list(set(notpain) - set(test_not))
 
         return [train_pain, train_not, test_pain, test_not]
+
+    def train_test_split_kfold(self):
+        pain = np.array(list(set(self.hdf) & set(self.painset)))
+        notpain = np.array(list(set(self.hdf) & set(self.notpainset)))
+        kf = KFold(self.k_fold, shuffle=True)
+        train_pain, test_pain = [], []
+        train_not, test_not = [], []
+
+        for train_index, test_index in kf.split(pain):
+            train_pain.append(pain[train_index])
+            test_pain.append(pain[test_index])
+        for train_index, test_index in kf.split(notpain):
+            train_not.append(notpain[train_index])
+            test_not.append(notpain[test_index])
+        out = list(zip(train_pain, train_not, test_pain, test_not))
+
+        self.split_record(out)
+
+        return out
+
+    def split_record(self, out):
+        keys = ["train_pain", "train_not", "test_pain", "test_not"]
+        for i, fold in enumerate(out):
+
+            fold_dict = {keys[j]: fold[j].tolist() for j in range(4)}
+            with open(os.path.join(self.kfold_path[i], "video_split.json"), "w") as f:
+                json.dump(fold_dict, f)
 
     def range_select(self, test_hdf, name, is_pain, gap_len=9, clip_len=5):
         order_list = (pd.Series(test_hdf.index)).apply(
@@ -143,7 +229,7 @@ class Dataset_builder:
 
 
 class keypoints_fix:
-    def __init__(self, hdf_file, save_file=None):
+    def __init__(self, hdf_file, save_file=None, num_kp=17, need_normal=False):
         if _isArrayLike(hdf_file):
             self.hdf = hdf_file
         elif os.path.isdir(hdf_file):
@@ -155,13 +241,17 @@ class keypoints_fix:
         self.head_set, self.back_set, self.leg_set = kp_class
         self.four_legs = [self.leg_set[i::4] for i in range(4)]
         self.save_file = save_file
-        self.new_index = pd.MultiIndex.from_product(
-            [
-                ["head1", "head2", "head3"] + self.back_set + self.leg_set,
-                ["x", "y"],
-            ],
-            names=["bodypart", "coord"]
-        )
+        self.need_normal = need_normal
+        if need_normal:
+            self.new_index = pd.MultiIndex.from_product(
+                [
+                    ["head1", "head2", "head3"] + self.back_set + self.leg_set,
+                    ["x", "y"],
+                ],
+                names=["bodypart", "coord"]
+            )
+        else:
+            self.new_index = [f"kp{i}" for i in range(2*num_kp)] 
 
     def pipeline(self, pre_filter=False, threshold=0.3, frame_gap=3):
         for file in tqdm(self.hdf):
@@ -175,8 +265,9 @@ class keypoints_fix:
             kp_dfp = self.df_filter(kp_df, pre_filter, threshold, frame_gap)
             out_container = []
             index = kp_dfp.index.values
+            line_process_func = self.line_process if self.need_normal else self.line_process_off
             for i in range(len(kp_dfp)):
-                out_array = self.kp_fill(kp_dfp.iloc[i])
+                out_array = self.kp_fill(kp_dfp.iloc[i], line_process_func)
                 if out_array.any():
                     out_container.append(out_array)
                 else:
@@ -208,8 +299,8 @@ class keypoints_fix:
         for i in range(len(kp_df)):
             mask_i = mask.iloc[i]
             if mask_i.sum() < 11 or mask_i[self.back_set].sum() != 2 or \
-                mask_i[self.head_set].sum() < 3 or \
-                     mask_i[self.leg_set].sum() < 6:
+                    mask_i[self.head_set].sum() < 3 or \
+                    mask_i[self.leg_set].sum() < 6:
                 delet_set.append(i)
         kp_dfp = kp_dfp.drop(kp_df.index[delet_set])
 
@@ -243,7 +334,7 @@ class keypoints_fix:
                         ]
         return first_f
 
-    def kp_fill(self, example_line):
+    def kp_fill(self, example_line, line_process):
         # 补腿
         line_x = example_line.xs("x", level=1)
         line_y = example_line.xs("y", level=1)
@@ -253,7 +344,7 @@ class keypoints_fix:
             temp_set[notnan].append(leg)
 
         if len(temp_set[3]) == 4:
-            return self.line_process((line_x, line_y))
+            return line_process((line_x, line_y))
         if temp_set[2]:
             for leg in temp_set[2]:
                 line_x[leg], line_y[leg] = self.fix_two(
@@ -283,7 +374,7 @@ class keypoints_fix:
                         line_x[leg], line_y[leg] = self.vertical_shift(
                             (line_x, line_y), leg, temp_set[2][0], self.back_set)
 
-        return self.line_process((line_x, line_y))
+        return line_process((line_x, line_y))
 
     def line_process(self, linexy):
         # 以脊椎的中点为坐标原点，得相对坐标。 除以脊椎长度标准化
@@ -303,6 +394,23 @@ class keypoints_fix:
             out_contain.append(np.append(line[:3], line[-14:]))
         out_contain = np.array(out_contain)
         return out_contain.flatten(order="F")
+
+    def line_process_off(self, linexy):
+        # 不处理相对坐标和标准化， 只进行筛选，记录脊椎长度，返回的数据多一列
+        out_contain = []
+        linex, liney = linexy
+        spine_len = np.sqrt(
+            (linex[back_set][0]-linex[back_set][1])**2 +
+            (liney[back_set][0]-liney[back_set][1])**2
+        )
+        if spine_len == 0:
+            return np.array(out_contain)
+        for line in linexy:
+
+            line = line[~np.isnan(line)].values
+            out_contain.append(np.append(line[:3], line[-14:]))
+        out_contain = np.array(out_contain).flatten(order="F")
+        return out_contain
 
     def fix_two(self, line_x, line_y, leg):
         # 缺一个点补全
@@ -349,12 +457,13 @@ class keypoints_fix:
 
 if __name__ == "__main__":
     '''
-    hdf_file = r"D:\pose\pain\data\annotation\keypoints"
-    save_file = r"D:\pose\pain\data\annotation\fixed_kp"
+    hdf_file = r"D:\pose\pain\data\pain_data\annotation\keypoints"
+    save_file = r"D:\pose\pain\data\pain_data\annotation\fixed_kp_raw"
     data_model = keypoints_fix(hdf_file, save_file)
     data_model.pipeline(pre_filter=True)
     '''
-    hdf_file = r"D:\pose\pain\data\annotation\fixed_kp"
-    save_file = r"D:\pose\pain\data\annotation\kp_valid"
-    data_model = Dataset_builder(hdf_file, save_file)
-    data_model.pipeline(gap_len=9, clip_len=8)
+    hdf_file = r"D:\pose\pain\data\pain_data\annotation\fixed_kp_raw"
+    save_file = r"D:\pose\pain\data\pain_data\annotation\kp_valid_raw"
+    data_model = Dataset_builder(hdf_file, save_file = save_file, split_file=r"D:\pose\pain\data\pain_data\annotation\split_nonormal")
+    data_model.run(gap_len=9, clip_len=8,k_fold=5,default_split=r"D:\pose\pain\data\pain_data\annotation\split")
+    

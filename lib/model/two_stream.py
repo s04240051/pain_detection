@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from turtle import forward
 import torch.nn as nn
 import torch
 from .conv_LSTM import ConvLSTM
@@ -8,10 +9,10 @@ from .model_utils import TemporalAttn, TimeDistributed
 import torch.nn.functional as F
 
 
-class two_stream_model(nn.Module):
+class Two_stream_model(nn.Module):
     def __init__(self, cfg):
 
-        super(two_stream_model, self).__init__()
+        super(Two_stream_model, self).__init__()
         self.clstm = Img_stream(
             cfg.MODEL.CLSTM_HIDDEN_SIZE, cfg.MODEL.NUM_CLSTM_LAYERS, cfg.MODEL.IMG_SIZE
         )
@@ -33,7 +34,19 @@ class two_stream_model(nn.Module):
         
         return out
 
-
+class Rgb_model(nn.Module):
+    def __init__(self, cfg):
+        super(Rgb_model, self).__init__()
+        self.clstm = Img_stream(
+            cfg.MODEL.CLSTM_HIDDEN_SIZE, cfg.MODEL.NUM_CLSTM_LAYERS, cfg.MODEL.IMG_SIZE
+        )
+        out_units = 1 if cfg.MODEL.NUM_LABELS == 2 else cfg.MODEL.NUM_LABELS
+        self.fc = nn.Linear(self.clstm.linear_input, out_units)
+    def forward(self, x):
+        frame = x[0]
+        frame = self.clstm(frame)
+        out = self.fc(frame)
+        return out
 class Img_stream(nn.Module):
     def __init__(
         self,
@@ -110,7 +123,7 @@ if __name__ == "__main__":
     from config_file import cfg
 
     
-    model = two_stream_model(cfg)
+    model = Two_stream_model(cfg)
     model = model.cuda()
     img = torch.rand((1, 10, 3, 224, 224))
     kp = torch.rand((1, 10, 34))
