@@ -1,11 +1,7 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from turtle import forward
 import torch.nn as nn
 import torch
 from .conv_LSTM import ConvLSTM
-from .model_utils import TemporalAttn, TimeDistributed
+from .model_utils import TemporalAttn, TimeDistributed, Head
 import torch.nn.functional as F
 
 
@@ -20,8 +16,7 @@ class Two_stream_model(nn.Module):
             cfg.MODEL.LSTM_INPUT_SIZE, cfg.MODEL.NUM_LSTM_LAYERS, cfg.MODEL.LSTM_HIDDEN_SIZE
         )
         fuse_dim = self.clstm.linear_input + cfg.MODEL.LSTM_HIDDEN_SIZE
-        out_units = 1 if cfg.MODEL.NUM_LABELS == 2 else cfg.MODEL.NUM_LABELS
-        self.fc = nn.Linear(fuse_dim, out_units)
+        self.head = Head(cfg, fuse_dim)
         
 
     def forward(self, x):
@@ -30,10 +25,8 @@ class Two_stream_model(nn.Module):
         frame = self.clstm(frame)
         kp = self.lstm_stream(kp)
         f_k_fuse = torch.concat([frame, kp], 1)
-        out = self.fc(f_k_fuse)
-        
-        return out
-
+        final_out = self.head(f_k_fuse)
+        return final_out
 class Rgb_model(nn.Module):
     def __init__(self, cfg):
         super(Rgb_model, self).__init__()

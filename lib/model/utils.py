@@ -1,4 +1,7 @@
 from sklearn.metrics import f1_score
+from collections import defaultdict
+import torch
+import torch.nn as nn
 import os
 import time
 import math
@@ -131,11 +134,11 @@ class AverageMeter(object):
 
 
 class Train_meter:
-    def __init__(self, cfg):
+    def __init__(self, cfg, num_label=1):
         self.data_meter = AverageMeter()
         self.batch_meter = AverageMeter()
-        self.loss_meter = AverageMeter()
-        self.acc_meter = AverageMeter()
+        
+        self.info = defaultdict(lambda:AverageMeter())
         self.lr = None
         self.max_epoch = cfg.SOLVER.MAX_EPOCH
         self.logger = get_logger(__name__)
@@ -178,27 +181,28 @@ class Train_meter:
             end_time = time.perf_counter()
         self.batch_meter.update(end_time-self.start)
 
-    def update_states(self, loss, acc, batch_size, lr):
-        self.loss_meter.update(loss, batch_size)
-        self.acc_meter.update(acc, batch_size)
+    def update_states(self, batch_size, lr, **param):
+        
+        for key, value in param.items():
+            self.info[key].update(value, batch_size)
         self.lr = lr
 
     def update_epoch(self, cur_epoch, cfg):
         eta_sec = (self.batch_meter.sum + self.data_meter.sum) * \
             (self.max_epoch-cur_epoch)
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
-        stats = {
+        states = {
             "_type": "train_epoch",
             "epoch": "{}/{}".format(cur_epoch, cfg.SOLVER.MAX_EPOCH),
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
+            "epoch_time": round(self.data_meter.sum+self.batch_meter.sum, 2),
             "lr": self.lr,
             "eta": eta,
-            "loss": round(self.loss_meter.avg, 3),
-            "accuracy": round(self.acc_meter.avg, 3)
         }
-        
-        self.record_info(stats, self.record_path)
+            
+        state2 = {key: round(value.avg, 3) for key, value in self.info.items() }
+        self.record_info(states.update(state2), self.record_path)
     
     def record_info(self, info, filename):
         result = "|".join([f"{key} {item}" for key, item in info.items()])
@@ -214,10 +218,10 @@ class Train_meter:
             df.to_csv(filename, mode='a', header=False, index=False)
     
     def reset(self):
-        self.acc_meter.reset()
+        
         self.batch_meter.reset()
         self.data_meter.reset()
-        self.loss_meter.reset()
+        self.info.clear()
         self.lr = None
 
 class test_meter(Train_meter):
@@ -240,7 +244,7 @@ class test_meter(Train_meter):
         self.f1 = f1_score(labels, self.preds>0, average="weighted")
         stats = {
             "_type": "test_epoch",
-            "epoch": "{}/{}".format(cur_epoch + 1, cfg.SOLVER.MAX_EPOCH),
+            "epoch": "{}/{}".format(cur_epoch, cfg.SOLVER.MAX_EPOCH),
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
             "accuracy": round(self.acc_meter.avg, 3),
@@ -262,31 +266,30 @@ class Val_meter(Train_meter):
         #super(Val_meter, self).__init__(cfg)
         self.data_meter = AverageMeter()
         self.batch_meter = AverageMeter()
-        self.loss_meter = AverageMeter()
-        self.acc_meter = AverageMeter()
+        self.info = defaultdict(lambda: AverageMeter())
         self.logger = get_logger(__name__)
         self.record_path = self.init_record("val", cfg)
     
-    def update_states(self, acc,loss, batch_size):
-        self.acc_meter.update(acc, batch_size)
-        self.loss_meter.update(loss, batch_size)
+    def update_states(self, batch_size, **param):
+        for key, value in param.items:
+            self.info[key].update(value, batch_size)
+        
     def update_epoch(self, cur_epoch, cfg):
-        stats = {
+        states = {
             "_type": "test_epoch",
-            "epoch": "{}/{}".format(cur_epoch + 1, cfg.SOLVER.MAX_EPOCH),
+            "epoch": "{}/{}".format(cur_epoch, cfg.SOLVER.MAX_EPOCH),
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
-            "accuracy": round(self.acc_meter.avg, 3),
-            "loss": round(self.loss_meter.avg, 3),
+            "epoch_time": round(self.data_meter.sum+self.batch_meter.sum, 2)
         }
-        
-        self.record_info(stats, self.record_path)
+        states1 = {key: round(value.sum, 3) for key, value in self.info.items()}
+        self.record_info(states.update(states1), self.record_path)
 
     def reset(self):
-        self.acc_meter.reset()
+        
         self.batch_meter.reset()
         self.data_meter.reset()
-        self.loss_meter.reset()
+        self.info.clear()
 
 def get_lr_at_epoch(cfg, cur_epoch):
     """
@@ -412,3 +415,21 @@ def setup_logging(log_path):
     # 为logger对象添加句柄
     logger.addHandler(handler)
     logger.addHandler(console)
+
+class AutomaticWeightedLoss(nn.Module):
+    """automatically weighted multi-task loss
+    Params :
+        num: int，the number of loss
+        x: multi-task loss
+    
+    """
+    def __init__(self, num=2):
+        super(AutomaticWeightedLoss, self).__init__()
+        params = torch.ones(num, requires_grad=True)
+        self.params = torch.nn.Parameter(params)
+
+    def forward(self, *x):
+        loss_sum = 0
+        for i, loss in enumerate(x):
+            loss_sum += 0.5 / (self.params[i] ** 2) * loss + torch.log(1 + self.params[i] ** 2)
+        return loss_sum
