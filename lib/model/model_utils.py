@@ -56,3 +56,28 @@ class TimeDistributed(nn.Module):
             
             output = output.contiguous().view(*out_para)
         return output
+
+class Head(nn.Module):
+    def __init__(self, cfg, vector_dim):
+        super(Head, self).__init__()
+        out_units = 1 if cfg.DATA.DATA_TYPE in ["simple","aux" ] else 3
+        self.fc = nn.Sequential(
+            nn.Dropout(p=0.1), 
+            nn.Linear(vector_dim, out_units),
+        )
+        if cfg.DATA.REQUIRE_AUX:
+            self.aux_fc = nn.Sequential(
+                nn.Dropout(p=0.1),
+                nn.Linear(vector_dim, 3),
+            )
+            self.two_out = True
+        else:
+            self.two_out = False
+
+    def forward(self, x):
+        out = self.fc(x)
+        if self.two_out:
+            out2 = self.aux_fc(x)
+            return [out, out2]
+        else:
+            return out
