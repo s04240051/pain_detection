@@ -1,3 +1,5 @@
+from turtle import forward
+from block import fusions
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
@@ -81,3 +83,36 @@ class Head(nn.Module):
             return [out, out2]
         else:
             return out
+class Late(nn.Module):
+    def __init__(self, dim1, dim2, cfg):
+        super(Late, self).__init__()
+        self.head1 = Head(cfg, dim1)
+        self.head2 = Head(cfg, dim2)
+        self.act = nn.Sigmoid() if cfg.DATA_TYPE == "simple" else nn.Softmax()
+        weight = torch.rand(2, requires_grad=True)
+        self.weight = torch.nn.Parameter(weight)
+    def forward(self,x1, x2):
+        x1 = self.head1(x1)
+        x2 = self.head2(x2)
+        score1 = self.act(x1)
+        score2 = self.act(x2)
+        weight_sum = torch.sum(self.weight)
+        out = (self.weight[0]/weight_sum)*score1 + (self.weight[1]/weight_sum)*score2
+        return out
+
+class Bilinear(nn.Module):
+    def __init__(self, dim1, dim2, cfg):
+        super(Bilinear, self).__init__()
+        dim_out = cfg.MODEL.BILINEAR_OUT_DIM
+        self.bilinear_fusion = fusions.Mutan([dim1, dim2], dim_out)
+    def forward(self, x1, x2):
+        out = self.bilinear_fusion([x1, x2])
+        return out
+class Concat(nn.Module):
+    def __init__(self, *args):
+        super(Concat, self).__init__()
+        
+    def forward(self, x1, x2):
+        out = torch.concat([x1, x2], 1)
+        return out
+
