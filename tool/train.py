@@ -26,12 +26,19 @@ def build_model(cfg):
             dampening=cfg.SOLVER.DAMPENING,
             nesterov=cfg.SOLVER.NESTEROV,
             )
-    elif cfg.OPTIM.METHOD == "adam":
+    elif cfg.SOLVER.METHOD == "adam":
         optim = torch.optim.Adam(
             model.parameters(),
             lr=cfg.SOLVER.BASE_LR, 
             betas=(0.9, 0.999),
             weight_decay=cfg.SOLVER.WEIGHT_DECAY,
+        )
+    elif cfg.SOLVER.METHOD == "adadelta":
+        optim = torch.optim.Adadelta(
+            model.parameters(),
+            lr=cfg.SOLVER.BASE_LR,
+            rho=0.95,
+            eps=1e-07,
         )
     
     train_meter = Train_meter(cfg)
@@ -61,7 +68,7 @@ def val_epoch(
         awl = sol.AutomaticWeightedLoss(2).cuda()
         awl.load_state_dict(loss_dict)
     test_meter.time_start()
-    for cur_iter, (inputs, labels) in enumerate(tqdm(test_loader)):
+    for cur_iter, (inputs, labels, start_name) in enumerate(tqdm(test_loader)):
         test_meter.time_pause()
         test_meter.update_data()
         test_meter.time_start()
@@ -145,7 +152,7 @@ def train_epoch(
     model.train()
     data_size = len(train_loader)
     train_meter.time_start()
-    for cur_iter, (inputs, labels) in enumerate(tqdm(train_loader)):
+    for cur_iter, (inputs, labels, start_name) in enumerate(tqdm(train_loader)):
         train_meter.time_pause()
         train_meter.update_data()
         train_meter.time_start()
@@ -238,11 +245,16 @@ def train_net(cfg):
     cudnn.benchmark = True
     
     logger.info("start epoch {}".format(start_epoch+1))
-    best_pred = 0
+    #best_pred = 0
     isbest = False
+    best_policy = cu.best_policy(cfg) 
     data_type = cfg.DATA.DATA_TYPE
-    loss_pack_train = sol.loss_builder(loss_wtrain, data_type)
-    loss_pack_test = sol.loss_builder(loss_wtest, data_type)
+    if cfg.MODEL.MODEL_NAME == "Two_stream_fusion" and cfg.MODEL.FUSION_METHOD == "late":
+        simple_loss = True
+    else:
+        simple_loss = False
+    loss_pack_train = sol.loss_builder(loss_wtrain, data_type, simple_loss)
+    loss_pack_test = sol.loss_builder(loss_wtest, data_type, simple_loss)
     
     for epoch in range(start_epoch+1, cfg.SOLVER.MAX_EPOCH):
         loss_dict = train_epoch(
@@ -266,12 +278,13 @@ def train_net(cfg):
                 loss_pack_test,
                 loss_dict=loss_dict,
             )
-                
+            '''
             isbest = acc > best_pred
             if isbest:
                 best_pred = acc
                 best_epoch = epoch 
-                
+            '''
+            isbest = best_policy.update(epoch, acc)   
         trigger_save = cu.save_policy(epoch, isbest, cfg)
         if trigger_save:
             cu.save_checkpoint(
@@ -283,7 +296,7 @@ def train_net(cfg):
                 cfg.NUM_GPUS,
             )   
     if cfg.SOLVER.ENABLE_VAL:
-        logger.info("best model in {} epoch with acc {:.3f}".format(best_epoch, best_pred))
+        logger.info("best model in {} epoch with acc {:.3f}".format(best_policy.best_epoch, best_policy.best_pred))
      
 if __name__ == "__main__":
     train_net(cfg)
