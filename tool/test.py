@@ -113,16 +113,15 @@ def test_full(cfg):
 
     test_loader = data_container.construct_loader("test")
     cudnn.benchmark = True
-    labels = (np.array(test_loader.dataset.label_list)[:, -1]).astype(int)
+  
     best_preds = 0
     best_f1 = 0
     for file in checkpoints_set:
         checkpoint = torch.load(file)
         epoch = checkpoint["epoch"]
         model.load_state_dict(checkpoint['model_state'])
-        acc, f1_score = val_epoch(
-            cfg, model, test_loader, test_meter, labels, epoch=epoch
-        )
+      
+        acc, f1_score = val_epoch(cfg, model, test_loader, test_meter, epoch)
         if acc > best_preds:
             best_preds, best_f1, best_epoch = acc, f1_score, epoch
     logger.info("best model in {} epoch with acc {:.3f}, f1 score {:.3f}".format(
