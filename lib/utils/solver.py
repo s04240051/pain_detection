@@ -15,16 +15,6 @@ def get_accuracy(outputs, label, topk=1):
     acc = torch.mean(correct)
     return acc
 
-def save_policy(cur_epoch, isbest, cfg):
-    if isbest and cur_epoch > cfg.SOLVER.WARMUP_EPOCHS:
-        return True
-    save_step = cfg.RUN.SAVE_STEP
-    if cur_epoch >= cfg.SOLVER.MAX_EPOCH-cfg.RUN.SAVE_LAST:
-        return True
-    elif ((cur_epoch) % save_step) == 0:
-        return True
-    else:
-        return False
 
 def get_lr_at_epoch(cfg, cur_epoch):
     """
@@ -140,7 +130,7 @@ class AutomaticWeightedLoss(nn.Module):
             loss_sum += 0.5 / (self.params[i] ** 2) * loss + torch.log(1 + self.params[i] ** 2)
         return loss_sum
 
-def loss_builder(loss_w, data_type):
+def loss_builder(loss_w, data_type, simple_loss):
     if data_type == "aux":
         weight1 = None if loss_w[0] is None else loss_w[0][1]
         loss_func1 = nn.BCEWithLogitsLoss(pos_weight=weight1).cuda()
@@ -149,7 +139,10 @@ def loss_builder(loss_w, data_type):
     else:
         if data_type == "simple":
             weight1 = None if loss_w[0] is None else loss_w[0][1]
-            loss_func = nn.BCEWithLogitsLoss(pos_weight=weight1).cuda()
+            if simple_loss:
+                loss_func = nn.BCELoss().cuda()
+            else:
+                loss_func = nn.BCEWithLogitsLoss(pos_weight=weight1).cuda()
             return [loss_func]
         else:
             loss_func = nn.CrossEntropyLoss(weight=loss_w[1]).cuda()
