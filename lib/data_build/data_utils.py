@@ -79,14 +79,32 @@ def tensor_normalize(tensor, mean, std):
     if tensor.dtype == torch.uint8:
         tensor = tensor.float()
         tensor = tensor / 255.0
+    if mean and std:
+        if mean and type(mean) == list:
+            mean = torch.tensor(mean)
+            
+        if std and type(std) == list:
+            std = torch.tensor(std)
+    
+        tensor = tensor - mean    
+        tensor = tensor / std
+    return tensor
+
+def revert_tensor_normalize(tensor, mean, std):
+    """
+    Revert normalization for a given tensor by multiplying by the std and adding the mean.
+    Args:
+        tensor (tensor): tensor to revert normalization.
+        mean (tensor or list): mean value to add.
+        std (tensor or list): std to multiply.
+    """
     if type(mean) == list:
         mean = torch.tensor(mean)
     if type(std) == list:
         std = torch.tensor(std)
-    tensor = tensor - mean
-    tensor = tensor / std
-    return tensor
-
+    tensor = tensor * std
+    tensor = tensor + mean
+    return 
 
 def horizontal_flip(prob, images):
     """
