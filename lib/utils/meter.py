@@ -119,7 +119,7 @@ class Train_meter:
         self.info.clear()
         self.lr = None
 
-class test_meter(Train_meter):
+class Test_meter(Train_meter):
     def __init__(self, cfg):
         
         self.data_meter = AverageMeter()
@@ -129,25 +129,40 @@ class test_meter(Train_meter):
         self.cfg = cfg
         self.record_path = self.init_record("test")
         self.preds = torch.tensor([])
+        self.labels = torch.tensor([])
+        self.start_name = []
     
-    def update_states(self, loss, acc, batch_size, preds):
+    def update_states(self, loss, acc, batch_size, preds, labels, start_name):
         self.acc_meter.update(acc, batch_size)
         self.loss_meter.update(loss, batch_size)
         self.preds = torch.concat((self.preds, preds))
+        self.labels = torch.concat((self.labels, labels))
+        self.start_name.extend(start_name)
     
-    def update_epoch(self, cur_epoch, cfg, labels):
-        self.f1 = f1_score(labels, self.preds>0, average="weighted")
+    def update_epoch(self, cur_epoch):
+        self.f1 = f1_score(self.labels, self.preds>0.5, average="weighted")
         stats = {
             "_type": "test_epoch",
-            "epoch": "{}/{}".format(cur_epoch, cfg.SOLVER.MAX_EPOCH),
+            "epoch": "{}/{}".format(cur_epoch, self.cfg.SOLVER.MAX_EPOCH),
             "dt_data": round(self.data_meter.avg, 2),
             "dt_net": round(self.batch_meter.avg, 2),
             "accuracy": round(self.acc_meter.avg, 3),
             "loss": round(self.loss_meter.avg, 3),
             "f1_score": round(self.f1, 3),
         }
-        
         self.record_info(stats, self.record_path)
+        if self.cfg.DATA.SAVE_PREDS:
+            results = {
+                "start_name": self.start_name,
+                "preds": self.preds.detach().numpy().flatten(),
+                "labels": self.labels.detach().numpy().flatten(),
+
+            }
+            dirname = os.path.join(self.cfg.OUT_DIR, "preds")
+            assert os.path.isdir(dirname), f"pred result dir {dirname} not exist"
+            record_name = self.cfg.CHECKPOINTS_FOLD +cur_epoch+".csv"
+            df = pd.DataFrame(results)
+            df.to_csv(os.path.join(dirname, record_name))
     
     def reset(self):
         self.acc_meter.reset()
@@ -155,7 +170,9 @@ class test_meter(Train_meter):
         self.data_meter.reset()
         self.loss_meter.reset()
         self.preds = torch.tensor([])
-        self.f1 = 0 
+        self.labels = torch.tensor([])
+        self.start_name = []
+        
 
 class Val_meter(Train_meter):
     def __init__(self, cfg):
