@@ -22,7 +22,7 @@ class Data_loader:
         assert self.model_type in ["two_stream",
                                    "rgb", "kp", "flow"], f"model type not support"
         self.img_size = cfg.MODEL.IMG_SIZE
-        self.clip_len = cfg.CLIP_LENGTH
+        self.clip_len = cfg.DATA.CLIP_LENGTH
         self.cfg = cfg
 
     def label_prepare(self, split):
@@ -188,7 +188,7 @@ class Pain_dataset(Dataset):
             crop_size = np.ceil(
                 max(line[["w", "h"]])/10
             )*10
-            bound = max((img_w, img_h))
+            bound = max(self.img_size)
             if crop_size <= bound:
                 crop_size = bound
             crop_x = np.clip(
