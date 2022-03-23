@@ -151,7 +151,7 @@ class Test_meter(Train_meter):
             "f1_score": round(self.f1, 3),
         }
         self.record_info(stats, self.record_path)
-        if self.cfg.DATA.SAVE_PREDS:
+        if self.cfg.SAVE_PREDS:
             results = {
                 "start_name": self.start_name,
                 "preds": self.preds.detach().numpy().flatten(),
