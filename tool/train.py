@@ -1,9 +1,11 @@
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import numpy as np
+import pprint
 import torch
 import torch.nn as nn 
 import torch.backends.cudnn as cudnn
+
 import lib.model.two_stream as model_set
 from lib.data_build import Data_loader
 from lib.config_file import cfg
@@ -11,7 +13,7 @@ import lib.utils.logging as log
 import lib.utils.checkpoint as cu
 from lib.utils.meter import Train_meter, Val_meter
 import lib.utils.solver as sol
-#import lib.model.utils as utils
+
 
 logger = log.get_logger(__name__)
 def build_model(cfg):
@@ -230,7 +232,8 @@ def train_net(cfg):
     torch.manual_seed(cfg.RNG_SEED)
     torch.cuda.manual_seed(cfg.RNG_SEED)
 
-    log.setup_logging(cfg.OUT_DIR)
+    log.setup_logging(cfg.OUT_DIR, cfg.CHECKPOINTS_FOLD)
+    logger.info(pprint.pformat(cfg))
     (
         model,
         optim,
@@ -267,7 +270,7 @@ def train_net(cfg):
             data_type,
             loss_pack_train
         )
-        if cfg.SOLVER.ENABLE_VAL:
+        if cfg.ENABLE_VAL:
             acc = val_epoch(
                 cfg, 
                 model, 

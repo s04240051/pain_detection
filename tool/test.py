@@ -1,14 +1,14 @@
 import numpy as np
+import pprint
 from tqdm import tqdm
 import os
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
-from lib.data_build.data_utils import loss_weight
 
+from lib.data_build.data_utils import loss_weight
 import lib.model.two_stream as model_set
 from lib.data_build import Data_loader
-#import lib.model.utils as utils
 import lib.utils.logging as log
 import lib.utils.checkpoint as cu
 from lib.utils.meter import Test_meter
@@ -28,7 +28,8 @@ def build_model(cfg):
 
 
 def test_net(cfg):
-    log.setup_logging(cfg.OUT_DIR)
+    log.setup_logging(cfg.OUT_DIR, cfg.CHECKPOINTS_FOLD)
+    logger.info(pprint.pformat(cfg))
     (
         model,
         test_meter,
@@ -99,7 +100,8 @@ def val_epoch(cfg, model, test_loader, test_meter, epoch=-1):
 
 
 def test_full(cfg):
-    log.setup_logging(cfg.OUT_DIR)
+    log.setup_logging(cfg.OUT_DIR, cfg.CHECKPOINTS_FOLD)
+    logger.info(pprint.pformat(cfg))
     checkpoints_set = cu.get_checkpoints_set(cfg)
     assert len(checkpoints_set) > 0, f"no checkpoints file avalible in {cfg.CHECKPOINTS_FOLD}"
     

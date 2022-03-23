@@ -7,14 +7,14 @@ def get_logger(name):
     return logging.getLogger(name)
 
 
-def setup_logging(log_path):
+def setup_logging(log_path, checkpoint_file):
 
     # 获取logger对象,取名
     logger = logging.getLogger()
     # 输出DEBUG及以上级别的信息，针对所有输出的第一层过滤
     logger.setLevel(level=logging.DEBUG)
     # 获取文件日志句柄并设置日志级别，第二层过滤
-    log_path = get_checkpoints_path(log_path, "logger")
+    log_path = get_checkpoints_path(log_path, checkpoint_file)
     log_path = os.path.join(log_path, "stdout.log")
     handler = logging.FileHandler(log_path, encoding='UTF-8')
     handler.setLevel(logging.INFO)
