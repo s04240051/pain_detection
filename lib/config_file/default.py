@@ -9,7 +9,6 @@ _C.KEYPOINT_FILE = ""
 _C.TRAIN_TEST_SPLIT = ""
 _C.CROP_IMAGE = ""
 _C.FLOW_IMAGE = ""
-_C.CLIP_LENGTH = 8
 _C.OUT_DIR = r"out"
 _C.TRAIN_INITIAL_WEIGHT = ""
 _C.TEST_INITIAL_WEIGHT = ""
@@ -22,7 +21,10 @@ _C.TEST_RECORD = ""
 _C.VAL_RECORD = ""
 _C.NUM_GPUS = 1
 _C.RNG_SEED = 1
-
+_C.ENABLE_TRAIN = False
+_C.ENABLE_VAL = True
+_C.ENABLE_TEST = False
+_C.SAVE_PREDS = True
 
 _C.MODEL = CN()
 _C.MODEL.MODEL_NAME = "Two_stream_model"
@@ -43,7 +45,7 @@ _C.DATA.REQUIRE_AUX = True
 _C.DATA.DATA_TYPE = "aux" #["simple","diff", "aux"]
 _C.DATA.EXTRA_LABEL = False
 _C.DATA.AUG = True
-_C.DATA.SAVE_PREDS = True
+_C.DATA.CLIP_LENGTH = 8
 _C.DATA.BALANCE_POLICY = 0 # 0: no balance, 1: add weight to loss, 2: add weight to sampler, 
 _C.DATA.MEAN = [0.45, 0.45, 0.45]
 _C.DATA.STD = [0.225, 0.225, 0.225]
@@ -66,7 +68,6 @@ _C.SOLVER.COSINE_END_LR = 0.0
 _C.SOLVER.LRS = [1, 0.1, 0.01, 0.001]
 _C.SOLVER.STEPS = [0,44,88,118]
 _C.SOLVER.MAX_EPOCH = 118
-_C.SOLVER.ENABLE_VAL = False
 
 _C.RUN = CN()
 _C.RUN.TEST_BATCH_SIZE = 1
@@ -75,3 +76,9 @@ _C.RUN.NUM_WORKS = 2
 _C.RUN.AUTO_RESUME = True
 _C.RUN.SAVE_STEP = 3
 _C.RUN.SAVE_LAST = 5
+
+def get_cfg():
+    """
+    Get a copy of the default config.
+    """
+    return _C.clone()
