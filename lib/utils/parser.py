@@ -12,12 +12,12 @@ def parse_args():
         "--cfg",
         dest="cfg_file",
         help="Path to the config file",
-        default="configs/Kinetics/SLOWFAST_4x16_R50.yaml",
+        default="configs/two_stream.yaml",
         type=str,
     )
     parser.add_argument(
         "opts",
-        help="See slowfast/config/defaults.py for all options",
+        help="See lib/config_file/defaults.py for all options",
         default=None,
         nargs=argparse.REMAINDER,
     )
