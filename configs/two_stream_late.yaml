@@ -1,7 +1,7 @@
 MODEL:
   MODEL_NAME: "Two_stream_fusion"
   TYPE:  "two_stream"
-  FUSION_METHOD: "late"
+  FUSION_METHOD: "Late"
   BILINEAR_OUT_DIM: 512
   ATTENTION:  True
   NUM_CLSTM_LAYERS: 4
