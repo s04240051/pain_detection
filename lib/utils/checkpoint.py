@@ -1,10 +1,7 @@
 import os
 import torch
 import torch.nn as nn
-import lib.utils.logging as log
-from collections import OrderedDict
 
-logger = log.get_logger(__name__)
 def load_train_checkpoint(cfg, model, optim):
     
     file_list = get_checkpoints_set(cfg)
