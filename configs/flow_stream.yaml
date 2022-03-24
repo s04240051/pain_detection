@@ -1,6 +1,7 @@
 MODEL:
   MODEL_NAME: "Flow_model"
   TYPE:  "flow"
+  FUSION_METHOD: "Add"
   ATTENTION:  True
   NUM_CLSTM_LAYERS: 4
   LSTM_HIDDEN_SIZE: 32

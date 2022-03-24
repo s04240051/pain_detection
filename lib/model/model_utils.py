@@ -105,14 +105,26 @@ class Bilinear(nn.Module):
         super(Bilinear, self).__init__()
         dim_out = cfg.MODEL.BILINEAR_OUT_DIM
         self.bilinear_fusion = fusions.Mutan([dim1, dim2], dim_out)
+        self.head = Head(cfg, dim_out)
     def forward(self, x1, x2):
         out = self.bilinear_fusion([x1, x2])
-        return out
-class Concat(nn.Module):
-    def __init__(self, *args):
-        super(Concat, self).__init__()
-        
-    def forward(self, x1, x2):
-        out = torch.concat([x1, x2], 1)
+        out = self.head(out)
         return out
 
+class Concat(nn.Module):
+    def __init__(self, dim1, dim2, cfg):
+        super(Concat, self).__init__()
+        self.head  = Head(cfg, dim1+dim2)
+    def forward(self, x1, x2):
+        out = torch.concat([x1, x2], 1)
+        out = self.head(out)
+        return out
+
+class Add(nn.Module):
+    def __init__(self, dim1, dim2, cfg):
+        super(Add, self).__init__()
+        self.head = Head(cfg, dim1)
+    def forward(self, x1, x2):
+        out = torch.add(x1, x2)
+        out = self.head(out)
+        return out
