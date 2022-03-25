@@ -231,9 +231,9 @@ class Dataset_builder:
 
 if __name__ == "__main__":
     hdf_file = r"D:\pose\pain\data\pain_data\annotation\fixed_kp" 
-    save_file = r"D:\pose\pain\data\pain_data\annotation\kp_valid_16" 
-    data_model = Dataset_builder(hdf_file, save_file = save_file, split_file=r"D:\pose\pain\data\pain_data\annotation\split_test_16")
-    data_model.run(gap_len=9, clip_len=16,k_fold=5,default_split=r"D:\pose\pain\data\pain_data\annotation\split_test", split_test=True)
+    save_file = r"D:\pose\pain\data\pain_data\annotation\kp_valid_12" 
+    data_model = Dataset_builder(hdf_file, save_file = save_file, split_file=r"D:\pose\pain\data\pain_data\annotation\split_test_12")
+    data_model.run(gap_len=9, clip_len=12,k_fold=5,default_split=r"D:\pose\pain\data\pain_data\annotation\split_test", split_test=True)
     '''
     hdf_file: 关键点文件
     save_file: 合成关键点和bbox的数据存放的文件夹, 单纯使用不同分割的话就填None. 用不同长度的clip要重新生成
