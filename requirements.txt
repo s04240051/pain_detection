@@ -1,0 +1,6 @@
+opencv-python
+pandas
+scikit-image
+yacs>=0.1.5
+tqdm
+block.bootstrap.pytorch
