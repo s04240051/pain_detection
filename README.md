@@ -4,7 +4,7 @@ This is a video-based dog's pain behavior recognition algorithm .We implement a 
 * Two-stream (RGB+keypoints) model for dog pain behavior recognition
 * Auxiliary learning to boost model's generalization ability
 * Three fusion methods: late fusion, concatenation, bilinear fusion. 
-![image](pipeline.png) 
+<img src=pipeline.png width="300" height="300" alt="pipeline"/><br/>
 ## Data
 All the code detail is in the ./dataset 
 ### Video frames --> croped images
