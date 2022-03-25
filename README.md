@@ -3,9 +3,8 @@
 This is a video-based dog's pain behavior recognition algorithm .We implement a hierarchical method that can localize the position of the dog within the image frames, extract the pose information, treat missing data problems and normalize the keypoint coordinates. A two-stream ConvLSTM and LSTM model is applied to detect dogs' pain action from the RGB video frames and corresponding keypoints sequence. This repository includes implementations of the following methods:
 * Two-stream (RGB+keypoints) model for dog pain behavior recognition
 * Auxiliary learning to boost model's generalization ability
-* Three fusion methods: late fusion, concatenation, bilinear fusion.   
-
-<div align=center><img src=pipeline.png width="300" height="300" alt="pipeline"/><br/>
+* Three fusion methods: late fusion, concatenation, bilinear fusion. 
+<img src=pipeline.png width="300" height="300" alt="pipeline"/><br/>
 ## Data
 All the code detail is in the ./dataset 
 ### Video frames --> croped images
