@@ -1,4 +1,3 @@
-from turtle import forward
 from block import fusions
 import torch.nn.functional as F
 import torch.nn as nn
